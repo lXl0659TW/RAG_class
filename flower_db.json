@@ -1,0 +1,66 @@
+[
+    {
+        "flower_type": "白色長花蕾",
+        "main_color": "白色",
+        "petal_shape": "花瓣長而細",
+        "center_detail": "花心有綠色花蕾",
+        "visual_style": "簡潔而優雅",
+        "id": "lilly1.jpg"
+    },
+    {
+        "flower_type": "洋菊",
+        "main_color": "粉紅色",
+        "petal_shape": "五瓣",
+        "center_detail": "黃色",
+        "visual_style": "簡約風格",
+        "id": "lilly2.jpg"
+    },
+    {
+        "flower_type": "Lily",
+        "main_color": "Orange, Yellow, Red",
+        "petal_shape": "Trumpet-shaped",
+        "center_detail": "Yellow or Orange",
+        "visual_style": "Elegant, Delicate",
+        "id": "lilly3.jpg"
+    },
+    {
+        "flower_type": "白色長筒型百合",
+        "main_color": "白色",
+        "petal_shape": "花瓣呈長筒型",
+        "center_detail": "花心呈黃色",
+        "visual_style": "簡約風格",
+        "id": "lilly4.jpg"
+    },
+    {
+        "flower_type": "太陽花",
+        "main_color": "黃色",
+        "petal_shape": "花瓣呈放射狀",
+        "center_detail": "花心黑色",
+        "visual_style": "簡單而美觀",
+        "id": "sun1.jpg"
+    },
+    {
+        "flower_type": "花卉",
+        "main_color": "白色",
+        "petal_shape": "花瓣圓形",
+        "center_detail": "花心黃色",
+        "visual_style": "簡約風格",
+        "id": "sun2.jpg"
+    },
+    {
+        "flower_type": "太陽花",
+        "main_color": "黃色",
+        "petal_shape": "圓形",
+        "center_detail": "黑色",
+        "visual_style": "簡約",
+        "id": "sun3.jpg"
+    },
+    {
+        "flower_type": "Sunflower",
+        "main_color": "Yellow",
+        "petal_shape": "Heliotropism",
+        "center_detail": "Brown",
+        "visual_style": "Bouquet",
+        "id": "sun4.jpg"
+    }
+]
