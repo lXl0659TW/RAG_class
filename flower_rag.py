@@ -11,9 +11,13 @@ class FlowerShopRAG:
         self.img_db_dir = img_db_dir
         self.db_file = db_file
         
-        # CPU 環境專用
-        self.client = ollama.Client(timeout=None)
+        # CPU 環境專用，明確指定本機連接埠，避免 Flask 找不到 Ollama
+        print(f"\n[DEBUG] 🔧 正在初始化 Ollama 客戶端連線至 http://127.0.0.1:11434 ...")
+        self.client = ollama.Client(host='http://127.0.0.1:11434', timeout=None)
+        
+        print(f"[DEBUG] 📂 正在確認產品資料庫狀態...")
         self.database = self._load_or_build_index()
+        print(f"[DEBUG] ✅ FlowerShopRAG 初始化完成！\n" + "="*50)
 
     def _load_or_build_index(self):
         if os.path.exists(self.db_file):
@@ -34,16 +38,11 @@ class FlowerShopRAG:
         flower_db = []
         total_start = time.perf_counter()
 
-        # --- 加入 tqdm 進度條 ---
-        # desc: 描述文字, unit: 單位
         pbar = tqdm(image_files, desc="分析進度", unit="張")
         
         for filename in pbar:
             path = os.path.join(self.img_db_dir, filename)
-            
-            # 更新進度條下方的臨時訊息
             pbar.set_postfix_str(f"正在處理: {filename}")
-            
             single_start = time.perf_counter()
             
             prompt = """請分析這張照片並以 JSON 格式回傳 (繁體中文)：
@@ -65,7 +64,6 @@ class FlowerShopRAG:
                 flower_db.append(item_data)
                 
                 single_elapsed = time.perf_counter() - single_start
-                # 在進度條下方保留歷史紀錄
                 tqdm.write(f"✅ {filename} 處理完成 (耗時: {single_elapsed:.1f} 秒)")
                 
             except Exception as e:
@@ -85,7 +83,6 @@ class FlowerShopRAG:
         start_time = time.perf_counter()
 
         try:
-            # 1. 第一步：分析使用者照片特徵
             user_res = self.client.chat(
                 model=self.model_name,
                 messages=[{'role': 'user', 'content': "請詳細分析這張照片中花卉的種類、顏色、形狀與風格特徵，用繁體中文回報。", 
@@ -94,7 +91,6 @@ class FlowerShopRAG:
             )
             user_analysis = user_res['message']['content']
             
-            # 2. 第二步：RAG 推薦邏輯 
             final_prompt = f"""
             你現在是『山洞口花店』的專業店員。
             
@@ -127,15 +123,12 @@ class FlowerShopRAG:
             elapsed = time.perf_counter() - start_time
             print(f"✨ 服務完成！本次耗時: {elapsed:.2f} 秒")
             
-            # 提取檔名以利顯示圖片
-            # 改進的正則表達式：尋找存在於 database 中的 id
             valid_ids = [item['id'] for item in self.database]
             recommend_files = []
             for word in re.split(r'[\s，：；\[\]]+', full_response):
                 if word in valid_ids and word not in recommend_files:
                     recommend_files.append(word)
             
-            # 只取前兩個推薦
             recommend_files = recommend_files[:2]
             
             if recommend_files:
@@ -145,7 +138,6 @@ class FlowerShopRAG:
                 
             return full_response
         except Exception as e:
-            return f"❌ 錯誤: {e}"
             return f"❌ 錯誤: {e}"
 
     def _display(self, filenames):
@@ -159,28 +151,47 @@ class FlowerShopRAG:
             plt.axis('off')
         plt.show()
     
-    # 這是新增給 Flask 使用的函數
+    # 這是給 Flask 網頁使用的核心函數（已加入豐富的 DEBUG 訊息）
     def get_rec_data(self, user_image_path):
-        if not self.database: return {"error": "資料庫空。"}
+        print(f"\n" + "="*50)
+        print(f"[DEBUG] 📩 接收到前端上傳圖片要求。")
+        print(f"[DEBUG] 📍 檔案存放路徑: {user_image_path}")
+
+        if not self.database: 
+            print(f"[DEBUG] ❌ 錯誤：資料庫為空，無法進行推薦。")
+            return {"error": "資料庫空。"}
 
         try:
-            # 提速技巧：如果圖片太大，先縮放再送給 AI (視覺模型處理小圖快很多)
+            # 1. 讀取並縮放圖片
+            print(f"[DEBUG] 📸 正在讀取並壓縮使用者圖片以提升 CPU 推理速度...")
+            start_time = time.perf_counter()
+            
             with Image.open(user_image_path) as img:
+                print(f"[DEBUG] 📖 成功讀取原始檔案 (尺寸: {img.size}, 格式: {img.format})")
                 img.thumbnail((512, 512)) # 縮放至 512px 以內
                 temp_path = user_image_path + "_temp.jpg"
                 img.convert("RGB").save(temp_path, "JPEG")
+                print(f"[DEBUG] 💾 縮減圖已暫存至: {temp_path} (新尺寸: {img.size})")
 
-            # 1. 分析使用者照片 (加強 Prompt 以獲得精準特徵)
+            # 2. 呼叫 Ollama 分析客戶照片
+            print(f"[DEBUG] 🧠 [步驟 1/2] 正在傳送暫存圖至 Ollama ({self.model_name}) 分析花卉特徵...")
+            ai_start = time.perf_counter()
+            
             user_res = self.client.chat(
                 model=self.model_name,
                 messages=[{'role': 'user', 'content': "請詳細分析這張花的顏色、花瓣形狀與整體風格，用繁體中文回答。", 
-                           'images': [temp_path]}],
+                           'images': [temp_path]}], # 已修正：改用暫存的縮小圖
                 options={"num_thread": 8, "temperature": 0}
             )
             user_analysis = user_res['message']['content']
+            ai_elapsed = time.perf_counter() - ai_start
+            print(f"[DEBUG] ✨ [步驟 1/2] 分析完成！耗時: {ai_elapsed:.2f} 秒")
+            print(f"[DEBUG] 📝 客戶照片分析結果片段:\n{user_analysis[:150]}...\n")
             
-            # 2. RAG 推薦邏輯 (強化指令，禁止拒絕推薦)
-            # 這裡我們把 Jupyter 裡好用的那套 Prompt 搬過來，並增加「強制推薦」語氣
+            # 3. 呼叫 Ollama 比對 RAG 資料庫
+            print(f"[DEBUG] 🧠 [步驟 2/2] 正在進行 RAG 資料庫比對與產品推薦...")
+            rag_start = time.perf_counter()
+            
             final_prompt = f"""
             你現在是『山洞口花店』的專業資深店員。
             
@@ -206,12 +217,15 @@ class FlowerShopRAG:
             res = self.client.chat(
                 model=self.model_name, 
                 messages=[{'role': 'user', 'content': final_prompt}],
-                options={"num_thread": 8, "temperature": 0.2} # 稍微增加一點創造力幫助匹配
+                options={"num_thread": 8, "temperature": 0.2}
             )
             
             full_response = res['message']['content']
+            rag_elapsed = time.perf_counter() - rag_start
+            print(f"[DEBUG] ✨ [步驟 2/2] RAG 推薦完成！耗時: {rag_elapsed:.2f} 秒")
             
-            # 3. 提取有效的 ID
+            # 4. 提取有效的 ID
+            print(f"[DEBUG] 🔍 正在從 AI 回傳文字中解析產品 ID...")
             valid_ids = [item['id'] for item in self.database]
             recommend_files = []
             for word in re.split(r'[\s，：；\[\]\n]+', full_response):
@@ -219,8 +233,16 @@ class FlowerShopRAG:
                 if clean_word in valid_ids and clean_word not in recommend_files:
                     recommend_files.append(clean_word)
             
-            # 清理臨時圖
-            if os.path.exists(temp_path): os.remove(temp_path)
+            print(f"[DEBUG] 🎯 解析成功！成功比對到的推薦 ID: {recommend_files[:2]}")
+
+            # 5. 清理臨時圖
+            if os.path.exists(temp_path): 
+                os.remove(temp_path)
+                print(f"[DEBUG] 🧹 暫存圖已安全刪除。")
+
+            total_elapsed = time.perf_counter() - start_time
+            print(f"[DEBUG] 🏆 網頁推薦功能執行完畢！總耗時: {total_elapsed:.2f} 秒")
+            print("="*50 + "\n")
 
             return {
                 "user_analysis": user_analysis,
@@ -228,4 +250,8 @@ class FlowerShopRAG:
                 "ai_message": full_response
             }
         except Exception as e:
+            print(f"[DEBUG] ❌ 發生例外錯誤: {str(e)}")
+            # 確保發生錯誤時也會清理暫存檔
+            if 'temp_path' in locals() and os.path.exists(temp_path):
+                os.remove(temp_path)
             return {"error": str(e)}
