@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>山洞口花店 AI 店員</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", sans-serif; max-width: 900px; margin: 40px auto; line-height: 1.6; background-color: #f9f9f9; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .rec-grid { display: flex; gap: 20px; margin: 20px 0; }
+        .card { flex: 1; border: 1px solid #eee; padding: 15px; border-radius: 8px; text-align: center; }
+        .card img { width: 100%; border-radius: 4px; }
+        .user-img { max-width: 200px; border: 3px solid #ffccdd; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌸 山洞口花店 AI 視覺推薦</h1>
+        <p>上傳您喜歡的花卉照片，讓我們為您推薦店內最相似的產品！</p>
+        
+        <form method="POST" enctype="multipart/form-data">
+            <input type="file" name="file" accept="image/*" required>
+            <button type="submit">開始 AI 分析</button>
+        </form>
+
+        <hr>
+
+        {% if result %}
+            {% if result.error %}
+                <p style="color: red;">錯誤：{{ result.error }}</p>
+            {% else %}
+                <h3>您的上傳照分析：</h3>
+                <img src="{{ url_for('static', filename=result.user_img_url) }}" class="user-img">
+                <p><em>{{ result.user_analysis }}</em></p>
+
+                <h3>✨ 店員為您推薦：</h3>
+                <div class="rec-grid">
+                    {% for img_id in result.recommend_ids %}
+                    <div class="card">
+                        <img src="/img_db/{{ img_id }}">
+                        <p>產品 ID: {{ img_id }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div style="background: #fff0f5; padding: 15px; border-radius: 8px;">
+                    <strong>💬 店員建議：</strong><br>
+                    {{ result.ai_message | replace('\n', '<br>') | safe }}
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</body>
+</html>
