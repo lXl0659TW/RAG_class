@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>山洞口 AI 花店推薦系統 - Hybrid RAG</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .flower-card { 
+            transition: transform 0.2s; 
+            border: none; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            background-color: #fff;
+        }
+        .flower-card:hover { transform: translateY(-5px); }
+        
+        /* 核心修改：確保圖片完整顯示 */
+        .img-container {
+            width: 100%;
+            height: 350px; /* 您可以根據需求調整高度 */
+            background-color: #f0f0f0; /* 圖片周圍未填滿區域的底色 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border-radius: 8px 8px 0 0;
+        }
+        .recommend-img { 
+            max-width: 100%; 
+            max-height: 100%; 
+            object-fit: contain; /* 確保圖片不被裁切，完整縮放顯示 */
+            display: block;
+        }
+
+        .badge-status { font-size: 0.9rem; padding: 8px 16px; border-radius: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container py-5">
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold text-dark">🌸 山洞口花店 Hybrid RAG 推薦</h1>
+        <p class="text-muted">基於 VLM 視覺特徵與向量庫檢索</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-4 mb-4">
+            <div class="card p-4 shadow-sm border-0">
+                <h5 class="mb-3">尋找花卉</h5>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">指定品種</label>
+                        <input type="text" name="flower_type" class="form-control" placeholder="例如：向日葵" value="{{ request.form.get('flower_type', '') }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">需求描述</label>
+                        <textarea name="description" class="form-control" rows="4" placeholder="例如：想要清新感、適合放在辦公室、白色系...">{{ request.form.get('description', '') }}</textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">開始 AI 推薦</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            {% if result %}
+                <div class="d-flex align-items-center mb-4">
+                    <h4 class="mb-0 me-3">推薦結果</h4>
+                    {% if result.is_fallback %}
+                        <span class="badge badge-status bg-warning text-dark">⚠️ 庫存無指定品種，為您推薦最相近款式</span>
+                    {% else %}
+                        <span class="badge badge-status bg-success">✅ 已鎖定專屬品種</span>
+                    {% endif %}
+                </div>
+
+                <div class="row">
+                    {% for item in result.recommendations %}
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100 flower-card">
+                            <div class="img-container">
+                                <img src="/img_db/{{ item.filename }}" class="recommend-img" alt="{{ item.filename }}">
+                            </div>
+                            
+                            <div class="card-body">
+                                <h6 class="text-primary fw-bold mb-1">{{ item.filename }}</h6>
+                                <hr>
+                                <p class="card-text text-muted small" style="line-height: 1.6;">
+                                    <strong>AI 專家分析：</strong><br>
+                                    {{ item.description }}
+                                </p>
+                            </div>
+                            <div class="card-footer bg-transparent border-0 text-end">
+                                <small class="text-secondary font-monospace" style="font-size: 0.75rem;">
+                                    MATCH_SCORE: {{ item.distance }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-5 border rounded bg-white text-muted">
+                    <p>請在左側輸入需求，系統將為您檢索最合適的花卉產品。</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
